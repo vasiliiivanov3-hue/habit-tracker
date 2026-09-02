@@ -113,16 +113,22 @@ col_streak, col_goal, _ = st.columns([1, 2, 2])
 with col_streak:
     st.metric("🔥 Текущая серия", f"{streak} дней")
 
-# ---- ВВОД (БЕЗ ИЗМЕНЕНИЙ) ----
+# ---- ВВОД (С ВЫБОРОМ ДАТЫ) ----
 col1, col2 = st.columns([3, 1])
 with col1:
     user_input = st.text_input("Введите подходы (например: 30, 15+15, +10)", placeholder="30")
 with col2:
-    st.write(" ")
+    date_input = st.date_input(
+        "Дата",
+        value=datetime.today().date(),
+        max_value=datetime.today().date(),
+        key="date_picker"
+    )
     if st.button("Сохранить", use_container_width=True):
         if user_input:
-            parse_and_save(user_input)
-            st.success(f"Сохранено! Сегодня: {load_data().get(datetime.today().strftime('%Y-%m-%d'), [])}")
+            date_str = date_input.strftime("%Y-%m-%d")
+            parse_and_save(user_input, date_str)
+            st.success(f"Сохранено за {date_str}!")
             st.rerun()
 
 # ---- ГРАФИКИ (БЕЗ ИЗМЕНЕНИЙ) ----
