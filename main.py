@@ -11,6 +11,7 @@ APP_TITLE = "💎 Мои привычки"
 
 # === ДЕФОЛТНЫЙ СПИСОК ПРИВЫЧЕК ===
 DEFAULT_HABITS = {
+    "workout": {"name": "Тренировка", "unit": "", "min": 1},
     "pushups": {"name": "Отжимания", "unit": "раз", "min": 15},
     "book": {"name": "Книга", "unit": "стр.", "min": 10},
     "abs": {"name": "Пресс", "unit": "раз", "min": 15},
@@ -134,6 +135,21 @@ def render_wheel_balance(data):
 def render_smart_goals(data):
     st.subheader("🎯 SMART-цели")
     goals = data.get("_smart_goals", [])
+    
+    # --- АВТОПОДСЧЕТ ПРОГРЕССА ДЛЯ ЦЕЛЕЙ ---
+    for goal in goals:
+        if "Отжимания" in goal["title"] or "отжимания" in goal["title"]:
+            # Считаем, сколько дней за последние 30 дней было >= 15 отжиманий
+            days_count = 0
+            for date_str, day_data in data.items():
+                if date_str.startswith("20") and isinstance(day_data, dict):
+                    if day_data.get("pushups", 0) >= 15:
+                        days_count += 1
+            # Прогресс = количество дней / 30 * 100
+            progress = min(100, int((days_count / 30) * 100))
+            goal["progress"] = progress
+    
+    # --- ДОБАВЛЕНИЕ НОВОЙ ЦЕЛИ (без изменений) ---
     with st.expander("➕ Добавить новую SMART-цель"):
         title = st.text_input("Название цели")
         specific = st.text_area("S (Specific) — Что именно?")
@@ -149,27 +165,33 @@ def render_smart_goals(data):
                 save_data(data)
                 st.success("Цель добавлена!")
                 st.rerun()
+    
+    # --- ОТОБРАЖЕНИЕ СПИСКА ЦЕЛЕЙ (с автопрогрессом) ---
     if goals:
         for idx, goal in enumerate(goals):
             st.write(f"**{idx+1}. {goal['title']}**")
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.write(f"- **S:** {goal['specific']}\n- **M:** {goal['measurable']}\n- **A:** {goal['achievable']}\n- **R:** {goal['relevant']}\n- **T:** {goal['deadline']}")
+                st.write(f"- **S:** {goal['specific']}")
+                st.write(f"- **M:** {goal['measurable']}")
+                st.write(f"- **A:** {goal['achievable']}")
+                st.write(f"- **R:** {goal['relevant']}")
+                st.write(f"- **T:** {goal['deadline']}")
             with col2:
                 st.metric("Прогресс", f"{goal['progress']}%")
                 st.progress(goal['progress'] / 100)
-                new_progress = st.slider(f"Обновить прогресс", 0, 100, goal['progress'], key=f"progress_{idx}")
-                if new_progress != goal['progress']:
-                    goals[idx]['progress'] = new_progress
-                    data["_smart_goals"] = goals
-                    save_data(data)
-                    st.rerun()
+                # Если цель про отжимания — показываем дополнительную информацию
+                if "Отжимания" in goal["title"] or "отжимания" in goal["title"]:
+                    days_done = sum(1 for d, day in data.items() if d.startswith("20") and isinstance(day, dict) and day.get("pushups", 0) >= 15)
+                    st.caption(f"✅ {days_done} дней с 15+ отжиманиями")
             if st.button(f"❌ Удалить цель {idx+1}", key=f"del_goal_{idx}"):
                 goals.pop(idx)
                 data["_smart_goals"] = goals
                 save_data(data)
                 st.rerun()
             st.divider()
+    else:
+        st.info("Пока нет ни одной цели. Добавь первую, используя раздел выше.")
 
 # ==================== ТРЕКЕР ТЕЛА ====================
 def render_body_tracker(data):
@@ -401,6 +423,21 @@ date_str = date_input.strftime("%Y-%m-%d")
 day_data = data.get(date_str, {})
 st.write(f"## {format_date_ru(date_input)}")
 cols = st.columns(3)
+# ---- ЧЕК-БОКС "ТРЕНИРОВКА" ----
+st.write("---")
+st.write("**🏋️ Тренировка**")
+col_train1, col_train2 = st.columns([1, 3])
+with col_train1:
+    workout_done = st.checkbox("✅ Тренировка выполнена", key=f"workout_{date_str}")
+    if workout_done:
+        # Сохраняем как привычку "тренировка"
+        save_habit(date_str, "workout", 1)
+    else:
+        save_habit(date_str, "workout", 0)
+with col_train2:
+    st.caption("Отметь, если сегодня была любая тренировка (отжимания, турник, гиря, штанга).")
+
+st.write("---")
 for idx, (key, habit) in enumerate(habits_config.items()):
     with cols[idx % 3]:
         val = day_data.get(key, None)
