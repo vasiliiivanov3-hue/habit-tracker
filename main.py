@@ -18,7 +18,7 @@ DEFAULT_HABITS = {
     "bedtime": {"name": "Отбой до 23:00", "unit": "", "min": 1},
     "wakeup": {"name": "Подъем до 7:00", "unit": "", "min": 1},
     "meditation": {"name": "Медитация", "unit": "", "min": 1},
-    "abstinence": {"name": "Воздержание", "unit": "", "min": 1},
+    # "abstinence": {"name": "Воздержание", "unit": "", "min": 1}, # Убрал
     "savings": {"name": "Отложил 1000₽", "unit": "₽", "min": 1000},
     "nofoul": {"name": "Не матерился", "unit": "", "min": 1},
 }
@@ -213,32 +213,20 @@ def render_body_tracker(data):
 # ==================== РЕВЬЮ НЕДЕЛИ ====================
 def render_weekly_review(data):
     st.subheader("📝 Ревью недели")
-    
-    # Выбор даты для ревью (по умолчанию сегодня)
     review_date = st.date_input("Дата ревью", value=datetime.today().date(), max_value=datetime.today().date())
     review_key = f"_weekly_review_{review_date.strftime('%Y-%m-%d')}"
-    
-    # Загружаем существующее ревью или создаём пустое
     review = data.get(review_key, {"done": "", "blocker": "", "win": "", "score": 5})
-    
-    # Поля ввода
     review["done"] = st.text_area("✅ Что сделано за неделю?", value=review.get("done", ""), height=68)
     review["blocker"] = st.text_area("🚧 Что мешало?", value=review.get("blocker", ""), height=68)
     review["win"] = st.text_area("🏆 Одна победа", value=review.get("win", ""), height=68)
     review["score"] = st.slider("Оценка недели (1–10)", 1, 10, review.get("score", 5))
-    
-    # Кнопка сохранения
     if st.button("💾 Сохранить ревью"):
         data[review_key] = review
         save_data(data)
         st.success("Ревью сохранено!")
         st.rerun()
-    
-    # --- ИСТОРИЯ РЕВЬЮ ---
     st.write("---")
     st.write("**📜 История ревью**")
-    
-    # Собираем все ревью из data
     all_reviews = []
     for key, value in data.items():
         if key.startswith("_weekly_review_"):
@@ -255,20 +243,14 @@ def render_weekly_review(data):
                 })
             except:
                 pass
-    
     if all_reviews:
-        # Сортируем по дате (сначала новые)
         all_reviews.sort(key=lambda x: x["date"], reverse=True)
-        
-        # График оценок недели
         df_reviews = pd.DataFrame(all_reviews)
         df_reviews = df_reviews.sort_values("date")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df_reviews["date"], y=df_reviews["score"], mode="lines+markers", name="Оценка недели", line=dict(color="purple")))
         fig.update_layout(title="Динамика оценок недели", xaxis_title="Дата", yaxis_title="Оценка (1–10)", height=300)
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Показываем последние 5 ревью
         st.write("**Последние ревью**")
         for review in all_reviews[:5]:
             with st.expander(f"📅 {review['date_str']} — Оценка: {review['score']}/10"):
@@ -277,6 +259,51 @@ def render_weekly_review(data):
                 st.write(f"**🏆 Победа:** {review['win']}")
     else:
         st.info("Пока нет сохранённых ревью. Начни с первого!")
+
+# ==================== ДНЕВНИК ИНСАЙТОВ (НОВЫЙ БЛОК) ====================
+def render_diary(data):
+    st.subheader("🧠 Дневник инсайтов")
+    st.caption("Записывай всё, что приходит в голову. Мысли, идеи, поток сознания — без цензуры.")
+    
+    diary_date = st.date_input("Дата записи", value=datetime.today().date(), max_value=datetime.today().date())
+    diary_key = f"_diary_{diary_date.strftime('%Y-%m-%d')}"
+    
+    # Загружаем существующую запись или создаём пустую
+    diary_entry = data.get(diary_key, "")
+    diary_entry = st.text_area("✍️ Твой поток сознания", value=diary_entry, height=200, placeholder="Пиши здесь всё, что считаешь нужным...")
+    
+    if st.button("💾 Сохранить запись"):
+        data[diary_key] = diary_entry
+        save_data(data)
+        st.success("Запись сохранена!")
+        st.rerun()
+    
+    # --- ИСТОРИЯ ЗАПИСЕЙ ---
+    st.write("---")
+    st.write("**📜 История инсайтов**")
+    
+    all_diary = []
+    for key, value in data.items():
+        if key.startswith("_diary_"):
+            date_str = key.replace("_diary_", "")
+            try:
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                if value:
+                    all_diary.append({
+                        "date": date_obj,
+                        "date_str": date_str,
+                        "text": value
+                    })
+            except:
+                pass
+    
+    if all_diary:
+        all_diary.sort(key=lambda x: x["date"], reverse=True)
+        for entry in all_diary[:10]:
+            with st.expander(f"📅 {entry['date_str']}"):
+                st.write(entry['text'])
+    else:
+        st.info("Пока нет записей. Начни вести дневник!")
 
 # ==================== ОСНОВНОЙ ИНТЕРФЕЙС ====================
 st.set_page_config(page_title=APP_TITLE, layout="wide")
@@ -299,7 +326,11 @@ st.divider()
 render_weekly_review(data)
 st.divider()
 
-# --- 5. ПРИВЫЧКИ ---
+# --- 5. ДНЕВНИК ИНСАЙТОВ (НОВЫЙ) ---
+render_diary(data)
+st.divider()
+
+# --- 6. ПРИВЫЧКИ ---
 st.subheader("📋 Ежедневные привычки")
 habits_config = data.get("_habits_config", DEFAULT_HABITS)
 with st.expander("⚙️ Настройка привычек"):
