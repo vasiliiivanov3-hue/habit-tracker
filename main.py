@@ -470,7 +470,31 @@ for key, habit in habits_config.items():
             st.plotly_chart(fig2, use_container_width=True)
 
 st.divider()
-if st.button("Сбросить все данные"):
-    save_data({})
-    st.warning("Все данные удалены")
-    st.rerun()
+
+# ==================== БЭКАП И УПРАВЛЕНИЕ ДАННЫМИ ====================
+st.subheader("💾 Резервное копирование и управление данными")
+
+col_backup, col_reset = st.columns(2)
+
+with col_backup:
+    st.write("**Скачать все свои данные**")
+    if st.button("📥 Подготовить бэкап (data.json)"):
+        data = load_data()
+        if data:
+            st.download_button(
+                label="📥 Нажмите, чтобы скачать файл",
+                data=json.dumps(data, indent=2, ensure_ascii=False),
+                file_name=f"data_backup_{datetime.today().strftime('%Y-%m-%d')}.json",
+                mime="application/json"
+            )
+        else:
+            st.warning("Нет данных для бэкапа. Сначала заполните привычки!")
+
+with col_reset:
+    st.write("**Очистить все данные**")
+    if st.button("⚠️ Сбросить все данные (безвозвратно)"):
+        save_data({})
+        st.warning("Все данные удалены!")
+        st.rerun()
+
+st.caption("Бэкап сохраняется на ваше устройство (телефон или компьютер). Храните его в надежном месте.")
