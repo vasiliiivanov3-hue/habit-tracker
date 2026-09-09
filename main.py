@@ -423,19 +423,40 @@ date_str = date_input.strftime("%Y-%m-%d")
 day_data = data.get(date_str, {})
 st.write(f"## {format_date_ru(date_input)}")
 cols = st.columns(3)
-# ---- ЧЕК-БОКС "ТРЕНИРОВКА" ----
+# ---- ТРЕНИРОВКА: СТАТУС И ДНЕВНИК ----
 st.write("---")
 st.write("**🏋️ Тренировка**")
-col_train1, col_train2 = st.columns([1, 3])
-with col_train1:
-    workout_done = st.checkbox("✅ Тренировка выполнена", key=f"workout_{date_str}")
-    if workout_done:
-        # Сохраняем как привычку "тренировка"
+
+col_train_status, col_train_text = st.columns([1, 2])
+
+with col_train_status:
+    # Статус тренировки: выполнена / не выполнена
+    workout_status = st.radio(
+        "Статус",
+        options=["✅ Выполнена", "❌ Не выполнена"],
+        index=0 if day_data.get("workout", 0) == 1 else 1,
+        key=f"workout_status_{date_str}",
+        horizontal=True
+    )
+    # Сохраняем статус
+    if workout_status == "✅ Выполнена":
         save_habit(date_str, "workout", 1)
     else:
         save_habit(date_str, "workout", 0)
-with col_train2:
-    st.caption("Отметь, если сегодня была любая тренировка (отжимания, турник, гиря, штанга).")
+
+with col_train_text:
+    # Дневник тренировки (детали)
+    workout_details = st.text_area(
+        "Детали тренировки (например: жим 50х10, присед 60х8)",
+        value=day_data.get("workout_details", ""),
+        key=f"workout_details_{date_str}",
+        placeholder="Напиши, что делал: упражнения, вес, подходы...",
+        height=68
+    )
+    if workout_details != day_data.get("workout_details", ""):
+        save_habit(date_str, "workout_details", workout_details)
+
+st.caption("📝 Отметь статус тренировки и запиши детали, чтобы видеть прогресс.")
 
 st.write("---")
 for idx, (key, habit) in enumerate(habits_config.items()):
