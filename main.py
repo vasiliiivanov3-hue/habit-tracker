@@ -175,22 +175,33 @@ def render_smart_goals(data):
 def render_body_tracker(data):
     st.subheader("🧍 Анатомия (замеры тела)")
     body_history = data.get("_body_history", [])
+    
+    # Параметры с разделением на лево/право
     params = {
         "weight": "Вес (кг)",
         "height": "Рост (см)",
         "neck": "Шея (см)",
         "chest": "Грудь (см)",
-        "biceps": "Бицепс (см)",
+        "biceps_l": "Бицепс (левая)",
+        "biceps_r": "Бицепс (правая)",
+        "forearm_l": "Предплечье (левое)",
+        "forearm_r": "Предплечье (правое)",
         "waist": "Талия (см)",
-        "hips": "Бёдра (см)",
-        "calves": "Икры (см)",
-        "forearm": "Предплечье (см)"
+        "hips_l": "Бедро (левое)",
+        "hips_r": "Бедро (правое)",
+        "calves_l": "Икра (левая)",
+        "calves_r": "Икра (правая)",
     }
+    
+    # Загружаем последний замер или создаём пустой
     current = body_history[-1].copy() if body_history else {param: 0 for param in params}
+    
+    # Отображаем поля в 3 колонки
     cols = st.columns(3)
     for i, (param, label) in enumerate(params.items()):
         with cols[i % 3]:
             current[param] = st.number_input(label, min_value=0, step=1, value=current.get(param, 0), key=f"body_{param}")
+    
     if st.button("📏 Сохранить замер"):
         current["date"] = datetime.today().strftime("%Y-%m-%d")
         body_history.append(current)
@@ -198,15 +209,18 @@ def render_body_tracker(data):
         save_data(data)
         st.success("Замер сохранён!")
         st.rerun()
+    
     if body_history:
         df_body = pd.DataFrame(body_history)
         df_body["date"] = pd.to_datetime(df_body["date"])
         df_body = df_body.sort_values("date")
+        
         st.write("**Динамика веса**")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df_body["date"], y=df_body["weight"], mode="lines+markers", name="Вес (кг)", line=dict(color="green")))
         fig.update_layout(xaxis_title="Дата", yaxis_title="Вес (кг)", height=300)
         st.plotly_chart(fig, use_container_width=True)
+        
         st.write("**Последние замеры**")
         st.dataframe(df_body.tail(5)[["date"] + list(params.keys())].style.format({"date": lambda x: x.strftime("%Y-%m-%d")}))
 
