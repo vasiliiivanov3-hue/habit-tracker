@@ -193,6 +193,21 @@ def render_body_tracker(data):
         "calves_r": "Икра (правая)",
     }
     
+    # Конвертация старых данных (если есть)
+    for entry in body_history:
+        if "biceps" in entry and "biceps_l" not in entry:
+            entry["biceps_l"] = entry["biceps"]
+            entry["biceps_r"] = entry["biceps"]
+        if "forearm" in entry and "forearm_l" not in entry:
+            entry["forearm_l"] = entry["forearm"]
+            entry["forearm_r"] = entry["forearm"]
+        if "hips" in entry and "hips_l" not in entry:
+            entry["hips_l"] = entry["hips"]
+            entry["hips_r"] = entry["hips"]
+        if "calves" in entry and "calves_l" not in entry:
+            entry["calves_l"] = entry["calves"]
+            entry["calves_r"] = entry["calves"]
+    
     # Загружаем последний замер или создаём пустой
     current = body_history[-1].copy() if body_history else {param: 0 for param in params}
     
@@ -222,7 +237,9 @@ def render_body_tracker(data):
         st.plotly_chart(fig, use_container_width=True)
         
         st.write("**Последние замеры**")
-        st.dataframe(df_body.tail(5)[["date"] + list(params.keys())].style.format({"date": lambda x: x.strftime("%Y-%m-%d")}))
+        # Безопасный показ: только те колонки, что есть в df_body
+        existing_cols = [col for col in ["date"] + list(params.keys()) if col in df_body.columns]
+        st.dataframe(df_body.tail(5)[existing_cols].style.format({"date": lambda x: x.strftime("%Y-%m-%d")}))
 
 # ==================== РЕВЬЮ НЕДЕЛИ ====================
 def render_weekly_review(data):
