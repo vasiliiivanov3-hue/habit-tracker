@@ -19,7 +19,6 @@ DEFAULT_HABITS = {
     "bedtime": {"name": "Отбой до 23:00", "unit": "", "min": 1},
     "wakeup": {"name": "Подъем до 7:00", "unit": "", "min": 1},
     "meditation": {"name": "Медитация", "unit": "", "min": 1},
-    # "abstinence": {"name": "Воздержание", "unit": "", "min": 1}, # Убрал
     "savings": {"name": "Отложил 1000₽", "unit": "₽", "min": 1000},
     "nofoul": {"name": "Не матерился", "unit": "", "min": 1},
 }
@@ -71,6 +70,43 @@ def format_date_ru(date_obj):
     months = ["января", "февраля", "марта", "апреля", "мая", "июня",
               "июля", "августа", "сентября", "октября", "ноября", "декабря"]
     return f"{date_obj.day} {months[date_obj.month-1]} {date_obj.year}"
+
+# ==================== КОМПАС (ДЕРЕВО ЦЕЛЕЙ) ====================
+def render_goal_tree(data):
+    st.subheader("🧭 Компас")
+    
+    goal_tree = data.get("_goal_tree", {
+        "100_years": "", "10_20_years": "", "3_5_years": "", "1_year": "",
+        "quarter": "", "week": "", "today": "", "now": ""
+    })
+    
+    levels = [
+        ("100_years", "🌍 Смысл жизни (100 лет)"),
+        ("10_20_years", "🎯 Миссия (10–20 лет)"),
+        ("3_5_years", "🏔 Большая цель (3–5 лет)"),
+        ("1_year", "📅 Цель года"),
+        ("quarter", "🗓 Квартал"),
+        ("week", "📆 Фокус недели"),
+        ("today", "☀️ Главное дело дня"),
+        ("now", "⚡ Сейчас (1–3 часа)")
+    ]
+    
+    show_all = st.toggle("Показать все уровни", value=False)
+    
+    if show_all:
+        visible = levels
+    else:
+        visible = [levels[0], levels[3], levels[6]]
+    
+    for key, label in visible:
+        value = goal_tree.get(key, "")
+        new_value = st.text_input(label, value=value, key=f"goal_tree_{key}")
+        if new_value != value:
+            goal_tree[key] = new_value
+            data["_goal_tree"] = goal_tree
+            save_data(data)
+    
+    st.caption("💡 В обычные дни видны 3 уровня. Включи тумблер — увидишь всю вертикаль.")
 
 # ==================== КОЛЕСО БАЛАНСА ====================
 def render_wheel_balance(data):
@@ -136,20 +172,16 @@ def render_smart_goals(data):
     st.subheader("🎯 SMART-цели")
     goals = data.get("_smart_goals", [])
     
-    # --- АВТОПОДСЧЕТ ПРОГРЕССА ДЛЯ ЦЕЛЕЙ ---
     for goal in goals:
         if "Отжимания" in goal["title"] or "отжимания" in goal["title"]:
-            # Считаем, сколько дней за последние 30 дней было >= 15 отжиманий
             days_count = 0
             for date_str, day_data in data.items():
                 if date_str.startswith("20") and isinstance(day_data, dict):
                     if day_data.get("pushups", 0) >= 15:
                         days_count += 1
-            # Прогресс = количество дней / 30 * 100
             progress = min(100, int((days_count / 30) * 100))
             goal["progress"] = progress
     
-    # --- ДОБАВЛЕНИЕ НОВОЙ ЦЕЛИ (без изменений) ---
     with st.expander("➕ Добавить новую SMART-цель"):
         title = st.text_input("Название цели")
         specific = st.text_area("S (Specific) — Что именно?")
@@ -166,7 +198,6 @@ def render_smart_goals(data):
                 st.success("Цель добавлена!")
                 st.rerun()
     
-    # --- ОТОБРАЖЕНИЕ СПИСКА ЦЕЛЕЙ (с автопрогрессом) ---
     if goals:
         for idx, goal in enumerate(goals):
             st.write(f"**{idx+1}. {goal['title']}**")
@@ -180,7 +211,6 @@ def render_smart_goals(data):
             with col2:
                 st.metric("Прогресс", f"{goal['progress']}%")
                 st.progress(goal['progress'] / 100)
-                # Если цель про отжимания — показываем дополнительную информацию
                 if "Отжимания" in goal["title"] or "отжимания" in goal["title"]:
                     days_done = sum(1 for d, day in data.items() if d.startswith("20") and isinstance(day, dict) and day.get("pushups", 0) >= 15)
                     st.caption(f"✅ {days_done} дней с 15+ отжиманиями")
@@ -198,7 +228,6 @@ def render_body_tracker(data):
     st.subheader("🧍 Анатомия (замеры тела)")
     body_history = data.get("_body_history", [])
     
-    # Параметры с разделением на лево/право
     params = {
         "weight": "Вес (кг)",
         "height": "Рост (см)",
@@ -215,7 +244,6 @@ def render_body_tracker(data):
         "calves_r": "Икра (правая)",
     }
     
-    # Конвертация старых данных (если есть)
     for entry in body_history:
         if "biceps" in entry and "biceps_l" not in entry:
             entry["biceps_l"] = entry["biceps"]
@@ -230,14 +258,12 @@ def render_body_tracker(data):
             entry["calves_l"] = entry["calves"]
             entry["calves_r"] = entry["calves"]
     
-    # Загружаем последний замер или создаём пустой
     current = body_history[-1].copy() if body_history else {param: 0 for param in params}
     
-    # Отображаем поля в 3 колонки
     cols = st.columns(3)
     for i, (param, label) in enumerate(params.items()):
         with cols[i % 3]:
-            current[param] = st.number_input(label, min_value=0, step=1, value=current.get(param, 0), key=f"body_{param}")
+            current[param] = st.number_input(label, min_value=0.0, step=0.5, value=float(current.get(param, 0.0)), key=f"body_{param}", format="%.1f")
     
     if st.button("📏 Сохранить замер"):
         current["date"] = datetime.today().strftime("%Y-%m-%d")
@@ -259,7 +285,6 @@ def render_body_tracker(data):
         st.plotly_chart(fig, use_container_width=True)
         
         st.write("**Последние замеры**")
-        # Безопасный показ: только те колонки, что есть в df_body
         existing_cols = [col for col in ["date"] + list(params.keys()) if col in df_body.columns]
         st.dataframe(df_body.tail(5)[existing_cols].style.format({"date": lambda x: x.strftime("%Y-%m-%d")}))
 
@@ -313,7 +338,7 @@ def render_weekly_review(data):
     else:
         st.info("Пока нет сохранённых ревью. Начни с первого!")
 
-# ==================== ДНЕВНИК ИНСАЙТОВ (НОВЫЙ БЛОК) ====================
+# ==================== ДНЕВНИК ИНСАЙТОВ ====================
 def render_diary(data):
     st.subheader("🧠 Дневник инсайтов")
     st.caption("Записывай всё, что приходит в голову. Мысли, идеи, поток сознания — без цензуры.")
@@ -321,7 +346,6 @@ def render_diary(data):
     diary_date = st.date_input("Дата записи", value=datetime.today().date(), max_value=datetime.today().date())
     diary_key = f"_diary_{diary_date.strftime('%Y-%m-%d')}"
     
-    # Загружаем существующую запись или создаём пустую
     diary_entry = data.get(diary_key, "")
     diary_entry = st.text_area("✍️ Твой поток сознания", value=diary_entry, height=200, placeholder="Пиши здесь всё, что считаешь нужным...")
     
@@ -331,7 +355,6 @@ def render_diary(data):
         st.success("Запись сохранена!")
         st.rerun()
     
-    # --- ИСТОРИЯ ЗАПИСЕЙ ---
     st.write("---")
     st.write("**📜 История инсайтов**")
     
@@ -363,11 +386,10 @@ st.set_page_config(page_title=APP_TITLE, layout="wide")
 st.title(APP_TITLE)
 data = load_data()
 
-# ---- ПОСЛЕДНЯЯ ЗАПИСЬ (только с реальными данными) ----
+# ---- ПОСЛЕДНЯЯ ЗАПИСЬ ----
 all_dates = []
 for d, day_data in data.items():
     if d.startswith("20") and isinstance(day_data, dict):
-        # Проверяем, есть ли хотя бы одно непустое значение
         has_data = any(
             (isinstance(v, (int, float)) and v > 0) or (isinstance(v, str) and v.strip())
             for k, v in day_data.items()
@@ -380,11 +402,30 @@ if all_dates:
     st.info(f"📅 Последняя запись была: **{format_date_ru(datetime.strptime(last_date, '%Y-%m-%d'))}**")
 else:
     st.warning("📅 Пока нет записей. Начни с сегодняшнего дня!")
+
+st.divider()
+
+# --- 0. КОМПАС ---
+render_goal_tree(data)
+st.divider()
+
+# --- 1. КОЛЕСО БАЛАНСА ---
+render_wheel_balance(data)
+st.divider()
+
+# --- 2. SMART-ЦЕЛИ ---
+render_smart_goals(data)
+st.divider()
+
+# --- 3. ТРЕКЕР ТЕЛА ---
+render_body_tracker(data)
+st.divider()
+
 # --- 4. РЕВЬЮ НЕДЕЛИ ---
 render_weekly_review(data)
 st.divider()
 
-# --- 5. ДНЕВНИК ИНСАЙТОВ (НОВЫЙ) ---
+# --- 5. ДНЕВНИК ИНСАЙТОВ ---
 render_diary(data)
 st.divider()
 
@@ -427,15 +468,12 @@ date_input = st.date_input("Выберите дату", value=today, max_value=t
 date_str = date_input.strftime("%Y-%m-%d")
 day_data = data.get(date_str, {})
 st.write(f"## {format_date_ru(date_input)}")
-cols = st.columns(3)
-# ---- ТРЕНИРОВКА: СТАТУС И ДНЕВНИК ----
+
+# ---- ТРЕНИРОВКА ----
 st.write("---")
 st.write("**🏋️ Тренировка**")
-
 col_train_status, col_train_text = st.columns([1, 2])
-
 with col_train_status:
-    # Статус тренировки: выполнена / не выполнена
     workout_status = st.radio(
         "Статус",
         options=["✅ Выполнена", "❌ Не выполнена"],
@@ -443,14 +481,11 @@ with col_train_status:
         key=f"workout_status_{date_str}",
         horizontal=True
     )
-    # Сохраняем статус
     if workout_status == "✅ Выполнена":
         save_habit(date_str, "workout", 1)
     else:
         save_habit(date_str, "workout", 0)
-
 with col_train_text:
-    # Дневник тренировки (детали)
     workout_details = st.text_area(
         "Детали тренировки (например: жим 50х10, присед 60х8)",
         value=day_data.get("workout_details", ""),
@@ -460,11 +495,14 @@ with col_train_text:
     )
     if workout_details != day_data.get("workout_details", ""):
         save_habit(date_str, "workout_details", workout_details)
-
 st.caption("📝 Отметь статус тренировки и запиши детали, чтобы видеть прогресс.")
-
 st.write("---")
+
+# ---- ОСТАЛЬНЫЕ ПРИВЫЧКИ ----
+cols = st.columns(3)
 for idx, (key, habit) in enumerate(habits_config.items()):
+    if key == "workout":
+        continue
     with cols[idx % 3]:
         val = day_data.get(key, None)
         if val is not None:
@@ -488,6 +526,8 @@ for idx, (key, habit) in enumerate(habits_config.items()):
                 st.rerun()
 
 st.divider()
+
+# ---- КАЛЕНДАРЬ ----
 st.subheader("📊 Календарь привычек за месяц")
 first_day = date_input.replace(day=1)
 last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
@@ -512,6 +552,8 @@ df_matrix.rename(columns={k: habits_config[k]["name"] for k in habits_config}, i
 st.dataframe(df_matrix.T, use_container_width=True)
 
 st.divider()
+
+# ---- ГРАФИКИ ПРИВЫЧЕК ----
 st.subheader("📈 Прогресс по привычкам")
 for key, habit in habits_config.items():
     if habit["unit"]:
@@ -536,9 +578,7 @@ st.divider()
 
 # ==================== БЭКАП И ВОССТАНОВЛЕНИЕ ====================
 st.subheader("💾 Резервное копирование и восстановление")
-
 col_backup, col_restore = st.columns(2)
-
 with col_backup:
     st.write("**📥 Скачать бэкап**")
     if st.button("Подготовить бэкап"):
@@ -552,7 +592,6 @@ with col_backup:
             )
         else:
             st.warning("Нет данных для бэкапа.")
-
 with col_restore:
     st.write("**📤 Загрузить бэкап**")
     uploaded_file = st.file_uploader("Выбери файл data.json", type="json")
@@ -564,5 +603,4 @@ with col_restore:
             st.rerun()
         except Exception as e:
             st.error(f"Ошибка: {e}")
-
 st.caption("⚠️ Данные хранятся в контейнере Streamlit Cloud и могут сброситься. Делай бэкап раз в неделю.")
