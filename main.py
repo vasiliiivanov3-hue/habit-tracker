@@ -363,26 +363,23 @@ st.set_page_config(page_title=APP_TITLE, layout="wide")
 st.title(APP_TITLE)
 data = load_data()
 
-# ---- ПОСЛЕДНЯЯ ЗАПИСЬ ----
-all_dates = [d for d in data.keys() if d.startswith("20")]
+# ---- ПОСЛЕДНЯЯ ЗАПИСЬ (только с реальными данными) ----
+all_dates = []
+for d, day_data in data.items():
+    if d.startswith("20") and isinstance(day_data, dict):
+        # Проверяем, есть ли хотя бы одно непустое значение
+        has_data = any(
+            (isinstance(v, (int, float)) and v > 0) or (isinstance(v, str) and v.strip())
+            for k, v in day_data.items()
+        )
+        if has_data:
+            all_dates.append(d)
+
 if all_dates:
     last_date = max(all_dates)
     st.info(f"📅 Последняя запись была: **{format_date_ru(datetime.strptime(last_date, '%Y-%m-%d'))}**")
 else:
     st.warning("📅 Пока нет записей. Начни с сегодняшнего дня!")
-
-# --- 1. КОЛЕСО БАЛАНСА ---
-render_wheel_balance(data)
-st.divider()
-
-# --- 2. SMART-ЦЕЛИ ---
-render_smart_goals(data)
-st.divider()
-
-# --- 3. ТРЕКЕР ТЕЛА ---
-render_body_tracker(data)
-st.divider()
-
 # --- 4. РЕВЬЮ НЕДЕЛИ ---
 render_weekly_review(data)
 st.divider()
