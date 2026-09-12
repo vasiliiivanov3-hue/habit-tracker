@@ -232,47 +232,6 @@ def render_body_silhouette(body):
     </div>
     '''
     st.markdown(svg, unsafe_allow_html=True)
-    
-    # Подписи с замерами (последние сохранённые)
-    def get_val(key):
-        v = body.get(key, 0)
-        return f"{v}" if v else "—"
-    
-    annotations = [
-        # Рост и вес — сбоку от головы
-        dict(x=1.0, y=9.0, text=f"Рост: {get_val('height')} см", showarrow=False, xanchor="left", font=dict(size=12, color="darkblue")),
-        dict(x=1.0, y=8.6, text=f"Вес: {get_val('weight')} кг", showarrow=False, xanchor="left", font=dict(size=12, color="darkblue")),
-        # Шея
-        dict(x=0.9, y=8.05, text=f"Шея: {get_val('neck')}", showarrow=False, xanchor="left", font=dict(size=11, color="darkred")),
-        # Грудь
-        dict(x=1.0, y=7.4, text=f"Грудь: {get_val('chest')}", showarrow=False, xanchor="left", font=dict(size=11, color="darkred")),
-        # Бицепсы
-        dict(x=-1.8, y=6.8, text=f"Бицепс Л: {get_val('biceps_l')}", showarrow=False, xanchor="right", font=dict(size=10)),
-        dict(x=1.8, y=6.8, text=f"Бицепс П: {get_val('biceps_r')}", showarrow=False, xanchor="left", font=dict(size=10)),
-        # Предплечья
-        dict(x=-1.8, y=4.9, text=f"Предпл. Л: {get_val('forearm_l')}", showarrow=False, xanchor="right", font=dict(size=10)),
-        dict(x=1.8, y=4.9, text=f"Предпл. П: {get_val('forearm_r')}", showarrow=False, xanchor="left", font=dict(size=10)),
-        # Талия
-        dict(x=0.9, y=5.5, text=f"Талия: {get_val('waist')}", showarrow=False, xanchor="left", font=dict(size=11, color="darkred")),
-        # Бёдра
-        dict(x=-1.0, y=4.2, text=f"Бедро Л: {get_val('hips_l')}", showarrow=False, xanchor="right", font=dict(size=10)),
-        dict(x=1.0, y=4.2, text=f"Бедро П: {get_val('hips_r')}", showarrow=False, xanchor="left", font=dict(size=10)),
-        # Икры
-        dict(x=-1.0, y=1.5, text=f"Икра Л: {get_val('calves_l')}", showarrow=False, xanchor="right", font=dict(size=10)),
-        dict(x=1.0, y=1.5, text=f"Икра П: {get_val('calves_r')}", showarrow=False, xanchor="left", font=dict(size=10)),
-    ]
-    
-    fig.update_layout(
-        annotations=annotations,
-        xaxis=dict(range=[-3, 3], showgrid=False, zeroline=False, visible=False),
-        yaxis=dict(range=[0, 10], showgrid=False, zeroline=False, visible=False, scaleanchor="x", scaleratio=1),
-        showlegend=False,
-        height=600,
-        margin=dict(l=20, r=20, t=20, b=20),
-        plot_bgcolor="white",
-        paper_bgcolor="white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
 
 # ==================== КОМПАС ====================
 def render_goal_tree(data):
