@@ -529,30 +529,35 @@ for key, habit in habits_config.items():
 
 st.divider()
 
-# ==================== БЭКАП И УПРАВЛЕНИЕ ДАННЫМИ ====================
-st.subheader("💾 Резервное копирование и управление данными")
+# ==================== БЭКАП И ВОССТАНОВЛЕНИЕ ====================
+st.subheader("💾 Резервное копирование и восстановление")
 
-col_backup, col_reset = st.columns(2)
+col_backup, col_restore = st.columns(2)
 
 with col_backup:
-    st.write("**Скачать все свои данные**")
-    if st.button("📥 Подготовить бэкап (data.json)"):
+    st.write("**📥 Скачать бэкап**")
+    if st.button("Подготовить бэкап"):
         data = load_data()
         if data:
             st.download_button(
-                label="📥 Нажмите, чтобы скачать файл",
+                label="📥 Скачать data.json",
                 data=json.dumps(data, indent=2, ensure_ascii=False),
                 file_name=f"data_backup_{datetime.today().strftime('%Y-%m-%d')}.json",
                 mime="application/json"
             )
         else:
-            st.warning("Нет данных для бэкапа. Сначала заполните привычки!")
+            st.warning("Нет данных для бэкапа.")
 
-with col_reset:
-    st.write("**Очистить все данные**")
-    if st.button("⚠️ Сбросить все данные (безвозвратно)"):
-        save_data({})
-        st.warning("Все данные удалены!")
-        st.rerun()
+with col_restore:
+    st.write("**📤 Загрузить бэкап**")
+    uploaded_file = st.file_uploader("Выбери файл data.json", type="json")
+    if uploaded_file is not None:
+        try:
+            restored_data = json.load(uploaded_file)
+            save_data(restored_data)
+            st.success("✅ Данные восстановлены! Обнови страницу.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Ошибка: {e}")
 
-st.caption("Бэкап сохраняется на ваше устройство (телефон или компьютер). Храните его в надежном месте.")
+st.caption("⚠️ Данные хранятся в контейнере Streamlit Cloud и могут сброситься. Делай бэкап раз в неделю.")
