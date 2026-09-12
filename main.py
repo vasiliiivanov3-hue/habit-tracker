@@ -127,32 +127,111 @@ def render_achievements(data, habits_config):
 
 # ==================== СИЛУЭТ ТЕЛА ====================
 def render_body_silhouette(body):
-    """Рисует схематичный силуэт человека с замерами"""
-    fig = go.Figure()
+    """Схема тела с точками замеров (SVG)"""
+    def v(key):
+        val = body.get(key, 0)
+        return f"{val:.1f}" if val and val != 0 else "—"
     
-    # Голова
-    fig.add_shape(type="circle", x0=-0.5, y0=8.2, x1=0.5, y1=9.2,
-                  line=dict(color="black", width=2), fillcolor="rgba(200,200,255,0.3)")
-    # Шея
-    fig.add_shape(type="rect", x0=-0.2, y0=7.9, x1=0.2, y1=8.2,
-                  line=dict(color="black", width=2), fillcolor="rgba(200,200,255,0.3)")
-    # Торс
-    fig.add_shape(type="path", path="M -0.9 5.5 L -0.7 7.9 L 0.7 7.9 L 0.9 5.5 Z",
-                  line=dict(color="black", width=2), fillcolor="rgba(200,200,255,0.3)")
-    # Руки
-    fig.add_shape(type="line", x0=-0.9, y0=7.7, x1=-1.6, y1=5.8, line=dict(color="black", width=2))
-    fig.add_shape(type="line", x0=0.9, y0=7.7, x1=1.6, y1=5.8, line=dict(color="black", width=2))
-    # Предплечья
-    fig.add_shape(type="line", x0=-1.6, y0=5.8, x1=-1.4, y1=4.0, line=dict(color="black", width=2))
-    fig.add_shape(type="line", x0=1.6, y0=5.8, x1=1.4, y1=4.0, line=dict(color="black", width=2))
-    # Талия
-    fig.add_shape(type="line", x0=-0.6, y0=5.5, x1=0.6, y1=5.5, line=dict(color="black", width=1, dash="dot"))
-    # Ноги
-    fig.add_shape(type="line", x0=-0.5, y0=5.0, x1=-0.6, y1=2.5, line=dict(color="black", width=2))
-    fig.add_shape(type="line", x0=0.5, y0=5.0, x1=0.6, y1=2.5, line=dict(color="black", width=2))
-    # Голени
-    fig.add_shape(type="line", x0=-0.6, y0=2.5, x1=-0.5, y1=0.3, line=dict(color="black", width=2))
-    fig.add_shape(type="line", x0=0.6, y0=2.5, x1=0.5, y1=0.3, line=dict(color="black", width=2))
+    fs = "font-family:sans-serif;"
+    lbl = f"{fs} font-size:13px; fill:#1a237e; font-weight:600;"
+    val_style = f"{fs} font-size:13px; fill:#e53935; font-weight:700;"
+    body_style = "fill:#e8eaf6; stroke:#3949ab; stroke-width:2;"
+    line_style = "stroke:#3949ab; stroke-width:2; fill:none;"
+    dot_style = "fill:#e53935; stroke:white; stroke-width:2;"
+    leader = "stroke:#e53935; stroke-width:1;"
+    
+    svg = f'''
+    <div style="display:flex; justify-content:center; padding:20px; background:#fafafa; border-radius:12px;">
+    <svg viewBox="0 0 500 780" xmlns="http://www.w3.org/2000/svg" style="max-width:100%; max-height:750px;">
+      <text x="250" y="25" text-anchor="middle" style="{fs} font-size:15px; fill:#1a237e; font-weight:700;">Рост: {v('height')} см · Вес: {v('weight')} кг</text>
+
+      <!-- Голова -->
+      <ellipse cx="250" cy="75" rx="35" ry="42" style="{body_style}"/>
+      <!-- Шея -->
+      <rect x="235" y="110" width="30" height="22" style="{body_style}"/>
+      <!-- Плечи -->
+      <path d="M 175 145 Q 250 130 325 145 L 320 165 Q 250 155 180 165 Z" style="{body_style}"/>
+      <!-- Торс -->
+      <path d="M 180 160 Q 165 250 185 340 L 315 340 Q 335 250 320 160 Z" style="{body_style}"/>
+      <!-- Левая рука -->
+      <path d="M 180 160 Q 145 220 130 300 Q 120 340 115 380" style="{line_style}"/>
+      <!-- Правая рука -->
+      <path d="M 320 160 Q 355 220 370 300 Q 380 340 385 380" style="{line_style}"/>
+      <!-- Таз -->
+      <path d="M 185 340 L 175 380 L 200 400 L 300 400 L 325 380 L 315 340 Z" style="{body_style}"/>
+      <!-- Ноги -->
+      <path d="M 210 400 Q 195 500 195 600 L 190 750" style="{line_style}"/>
+      <path d="M 290 400 Q 305 500 305 600 L 310 750" style="{line_style}"/>
+
+      <!-- ШЕЯ -->
+      <circle cx="250" cy="120" r="5" style="{dot_style}"/>
+      <line x1="255" y1="120" x2="310" y2="120" style="{leader}"/>
+      <text x="315" y="116" style="{lbl}">Шея</text>
+      <text x="315" y="134" style="{val_style}">{v('neck')} см</text>
+
+      <!-- ГРУДЬ -->
+      <circle cx="250" cy="200" r="5" style="{dot_style}"/>
+      <line x1="255" y1="200" x2="310" y2="200" style="{leader}"/>
+      <text x="315" y="196" style="{lbl}">Грудь</text>
+      <text x="315" y="214" style="{val_style}">{v('chest')} см</text>
+
+      <!-- ТАЛИЯ -->
+      <circle cx="250" cy="310" r="5" style="{dot_style}"/>
+      <line x1="255" y1="310" x2="310" y2="310" style="{leader}"/>
+      <text x="315" y="306" style="{lbl}">Талия</text>
+      <text x="315" y="324" style="{val_style}">{v('waist')} см</text>
+
+      <!-- БИЦЕПС Л -->
+      <circle cx="140" cy="220" r="5" style="{dot_style}"/>
+      <line x1="135" y1="220" x2="80" y2="220" style="{leader}"/>
+      <text x="75" y="216" text-anchor="end" style="{lbl}">Бицепс Л</text>
+      <text x="75" y="234" text-anchor="end" style="{val_style}">{v('biceps_l')}</text>
+
+      <!-- БИЦЕПС П -->
+      <circle cx="360" cy="220" r="5" style="{dot_style}"/>
+      <line x1="365" y1="220" x2="420" y2="220" style="{leader}"/>
+      <text x="425" y="216" style="{lbl}">Бицепс П</text>
+      <text x="425" y="234" style="{val_style}">{v('biceps_r')}</text>
+
+      <!-- ПРЕДПЛЕЧЬЕ Л -->
+      <circle cx="120" cy="320" r="5" style="{dot_style}"/>
+      <line x1="115" y1="320" x2="80" y2="320" style="{leader}"/>
+      <text x="75" y="316" text-anchor="end" style="{lbl}">Предпл. Л</text>
+      <text x="75" y="334" text-anchor="end" style="{val_style}">{v('forearm_l')}</text>
+
+      <!-- ПРЕДПЛЕЧЬЕ П -->
+      <circle cx="380" cy="320" r="5" style="{dot_style}"/>
+      <line x1="385" y1="320" x2="420" y2="320" style="{leader}"/>
+      <text x="425" y="316" style="{lbl}">Предпл. П</text>
+      <text x="425" y="334" style="{val_style}">{v('forearm_r')}</text>
+
+      <!-- БЕДРО Л -->
+      <circle cx="200" cy="400" r="5" style="{dot_style}"/>
+      <line x1="195" y1="400" x2="80" y2="400" style="{leader}"/>
+      <text x="75" y="396" text-anchor="end" style="{lbl}">Бедро Л</text>
+      <text x="75" y="414" text-anchor="end" style="{val_style}">{v('hips_l')}</text>
+
+      <!-- БЕДРО П -->
+      <circle cx="300" cy="400" r="5" style="{dot_style}"/>
+      <line x1="305" y1="400" x2="420" y2="400" style="{leader}"/>
+      <text x="425" y="396" style="{lbl}">Бедро П</text>
+      <text x="425" y="414" style="{val_style}">{v('hips_r')}</text>
+
+      <!-- ИКРА Л -->
+      <circle cx="196" cy="600" r="5" style="{dot_style}"/>
+      <line x1="191" y1="600" x2="80" y2="600" style="{leader}"/>
+      <text x="75" y="596" text-anchor="end" style="{lbl}">Икра Л</text>
+      <text x="75" y="614" text-anchor="end" style="{val_style}">{v('calves_l')}</text>
+
+      <!-- ИКРА П -->
+      <circle cx="304" cy="600" r="5" style="{dot_style}"/>
+      <line x1="309" y1="600" x2="420" y2="600" style="{leader}"/>
+      <text x="425" y="596" style="{lbl}">Икра П</text>
+      <text x="425" y="614" style="{val_style}">{v('calves_r')}</text>
+    </svg>
+    </div>
+    '''
+    st.markdown(svg, unsafe_allow_html=True)
     
     # Подписи с замерами (последние сохранённые)
     def get_val(key):
