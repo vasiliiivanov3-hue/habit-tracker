@@ -461,7 +461,7 @@ def render_habits_input(data, habits_config):
     day_data = data.get(date_str, {})
     st.write(f"## {format_date_ru(date_input)}")
     
-    st.write("---")
+    # ---- ТРЕНИРОВКА ----
     st.write("**🏋️ Тренировка**")
     col_train_status, col_train_text = st.columns([1, 2])
     with col_train_status:
@@ -470,32 +470,62 @@ def render_habits_input(data, habits_config):
         save_habit(date_str, "workout", 1 if workout_status == "✅ Выполнена" else 0)
     with col_train_text:
         workout_details = st.text_area("Детали тренировки", value=day_data.get("workout_details", ""),
-            key=f"workout_details_{date_str}", height=68)
+            key=f"workout_details_{date_str}", height=68, label_visibility="collapsed",
+            placeholder="Детали: жим 50х10, присед 60х8...")
         if workout_details != day_data.get("workout_details", ""):
             save_habit(date_str, "workout_details", workout_details)
-    st.write("---")
     
-    cols = st.columns(3)
+    st.divider()
+    
+    # ---- ТАБЛИЦА ПРИВЫЧЕК ----
+    st.write("**📋 Привычки**")
+    
+    # Заголовок таблицы
+    h1, h2, h3, h4, h5 = st.columns([3, 1, 1, 2, 1])
+    with h1: st.markdown("**Привычка**")
+    with h2: st.markdown("**Ед.**")
+    with h3: st.markdown("**Есть**")
+    with h4: st.markdown("**Добавить**")
+    with h5: st.markdown("**💾**")
+    
+    st.markdown("<hr style='margin:4px 0;'>", unsafe_allow_html=True)
+    
     for idx, (key, habit) in enumerate(habits_config.items()):
         if key == "workout":
             continue
-        with cols[idx % 3]:
-            val = day_data.get(key, None)
+        
+        val = day_data.get(key, None)
+        
+        c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 2, 1])
+        
+        with c1:
+            st.markdown(f"<div style='padding-top:8px;'>{habit['name']}</div>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div style='padding-top:8px; color:#666;'>{habit['unit'] if habit['unit'] else '—'}</div>", unsafe_allow_html=True)
+        with c3:
             if val is not None:
                 if habit["unit"]:
-                    st.write(f"**{habit['name']}:** {val} {habit['unit']}")
+                    st.markdown(f"<div style='padding-top:8px; color:#1a237e; font-weight:700;'>{val}</div>", unsafe_allow_html=True)
                 else:
-                    st.write(f"**{habit['name']}:** {'✅' if val else '❌'}")
+                    st.markdown(f"<div style='padding-top:8px;'>{'✅' if val else '❌'}</div>", unsafe_allow_html=True)
             else:
-                st.write(f"**{habit['name']}:** —")
+                st.markdown("<div style='padding-top:8px; color:#ccc;'>—</div>", unsafe_allow_html=True)
+        with c4:
             if habit["unit"]:
-                user_input = st.text_input(f"Добавить", key=f"inp_{date_str}_{key}", placeholder="10+20 или 30")
-                if st.button(f"Сохранить", key=f"btn_{date_str}_{key}"):
+                user_input = st.text_input("", key=f"inp_{date_str}_{key}", 
+                    placeholder="10+20 или 30", label_visibility="collapsed")
+            else:
+                user_input = None
+                st.write("")
+        with c5:
+            if habit["unit"]:
+                if st.button("💾", key=f"btn_{date_str}_{key}", use_container_width=True):
                     if user_input:
                         parse_habit_value(user_input, key, date_str)
                         st.rerun()
             else:
-                if st.button(f"Переключить", key=f"tog_{date_str}_{key}"):
+                btn_label = "↩️" if val else "✅"
+                if st.button(btn_label, key=f"tog_{date_str}_{key}", use_container_width=True):
                     save_habit(date_str, key, not val if val is not None else True)
                     st.rerun()
 
@@ -545,7 +575,21 @@ def render_calendar_and_graphs(data, habits_config):
 
 # ==================== ОСНОВНОЙ ИНТЕРФЕЙС ====================
 st.set_page_config(page_title=APP_TITLE, layout="wide")
-st.title(APP_TITLE)
+# Ограничиваем ширину контента — как в чате
+st.markdown("""
+<style>
+    .stMainBlockContainer, .block-container {
+        max-width: 900px !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        margin: 0 auto !important;
+    }
+    [data-testid="stAppViewContainer"] > .main {
+        max-width: 900px !important;
+        margin: 0 auto !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 data = load_data()
 habits_config = data.get("_habits_config", DEFAULT_HABITS)
@@ -573,35 +617,49 @@ if mode == "☀️ День":
 
 # ==================== РЕЖИМ "РЕВЬЮ" ====================
 else:
+    # Компас и достижения — всегда сверху
     render_goal_tree(data)
     st.divider()
     render_achievements(data, habits_config)
     st.divider()
-    render_wheel_balance(data)
-    st.divider()
-    render_smart_goals(data)
-    st.divider()
-    render_body_tracker(data)
-    st.divider()
-    render_weekly_review(data)
-    st.divider()
-    render_diary(data)
-    st.divider()
-    render_calendar_and_graphs(data, habits_config)
-    st.divider()
-    st.subheader("💾 Резервное копирование")
-    col_backup, col_restore = st.columns(2)
-    with col_backup:
-        if st.button("Подготовить бэкап"):
-            st.download_button("📥 Скачать data.json", data=json.dumps(data, indent=2, ensure_ascii=False),
-                file_name=f"data_backup_{datetime.today().strftime('%Y-%m-%d')}.json", mime="application/json")
-    with col_restore:
-        uploaded_file = st.file_uploader("Загрузить бэкап", type="json")
-        if uploaded_file is not None:
-            try:
-                restored = json.load(uploaded_file)
-                save_data(restored)
-                st.success("✅ Восстановлено!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Ошибка: {e}")
+    
+    # Табы для остального
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🎡 Колесо и цели",
+        "🧍 Анатомия",
+        "📝 Ревью и дневник",
+        "📊 Статистика"
+    ])
+    
+    with tab1:
+        render_wheel_balance(data)
+        st.divider()
+        render_smart_goals(data)
+    
+    with tab2:
+        render_body_tracker(data)
+    
+    with tab3:
+        render_weekly_review(data)
+        st.divider()
+        render_diary(data)
+    
+    with tab4:
+        render_calendar_and_graphs(data, habits_config)
+        st.divider()
+        st.subheader("💾 Резервное копирование")
+        col_backup, col_restore = st.columns(2)
+        with col_backup:
+            if st.button("Подготовить бэкап"):
+                st.download_button("📥 Скачать data.json", data=json.dumps(data, indent=2, ensure_ascii=False),
+                    file_name=f"data_backup_{datetime.today().strftime('%Y-%m-%d')}.json", mime="application/json")
+        with col_restore:
+            uploaded_file = st.file_uploader("Загрузить бэкап", type="json")
+            if uploaded_file is not None:
+                try:
+                    restored = json.load(uploaded_file)
+                    save_data(restored)
+                    st.success("✅ Восстановлено!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Ошибка: {e}")
