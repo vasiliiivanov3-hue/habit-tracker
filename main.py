@@ -533,6 +533,17 @@ def render_habits_input(data, habits_config):
 def render_calendar_and_graphs(data, habits_config):
     today = datetime.today().date()
     st.subheader("📊 Календарь за месяц")
+    
+    # Легенда
+    st.markdown("""
+    <div style="font-size:13px; margin-bottom:10px;">
+    <span style="color:#2e7d32; font-weight:700;">🟢 Зелёный</span> — 10+ дней из 14 · 
+    <span style="color:#f9a825; font-weight:700;">🟡 Жёлтый</span> — 4–9 из 14 · 
+    <span style="color:#c62828; font-weight:700;">🔴 Красный</span> — 0–3 из 14 или 14+ дней назад · 
+    <span style="color:#888; font-weight:700;">⚪ Серый</span> — новая привычка
+    </div>
+    """, unsafe_allow_html=True)
+    
     first_day = today.replace(day=1)
     last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
     dates_in_month = [(first_day + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(last_day.day)]
@@ -550,7 +561,59 @@ def render_calendar_and_graphs(data, habits_config):
                 matrix[key].append("✅" if val else ("⬜" if val is None else "❌"))
     df_matrix = pd.DataFrame(matrix, index=[f"{i+1}" for i in range(len(dates_in_month))])
     df_matrix.rename(columns={k: habits_config[k]["name"] for k in habits_config}, inplace=True)
-    st.dataframe(df_matrix.T, use_container_width=True)
+    
+    # ---- РАСЧЁТ ЦВЕТА ПО 14 ДНЯМ ----
+    def get_habit_color(key):
+        last_14 = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(14)]
+        done_count = 0
+        last_done_ago = 999
+        has_any = False
+        
+        for i, d in enumerate(last_14):
+            day_info = data.get(d, {})
+            if not isinstance(day_info, dict):
+                continue
+            val = day_info.get(key)
+            if val is None:
+                continue
+            has_any = True
+            is_done = False
+            if habits_config[key]["unit"]:
+                if isinstance(val, (int, float)) and val >= habits_config[key]["min"]:
+                    is_done = True
+            else:
+                if val:
+                    is_done = True
+            if is_done:
+                done_count += 1
+                if last_done_ago == 999:
+                    last_done_ago = i
+        
+        if not has_any:
+            return "#888888"       # серый
+        if last_done_ago > 14 or done_count == 0:
+            return "#c62828"       # красный
+        if done_count >= 10:
+            return "#2e7d32"       # зелёный
+        if done_count >= 4:
+            return "#f9a825"       # жёлтый
+        return "#c62828"           # красный
+    
+    color_map = {habit["name"]: get_habit_color(key) for key, habit in habits_config.items()}
+    
+    # ---- ТАБЛИЦА С ЦВЕТНЫМ ПЕРВЫМ СТОЛБЦОМ ----
+    df_display = df_matrix.T.reset_index()
+    df_display.rename(columns={"index": "Привычка"}, inplace=True)
+    
+    def style_row(row):
+        color = color_map.get(row["Привычка"], "#000000")
+        return [
+            f"color: {color}; font-weight: 700;" if col == "Привычка" else ""
+            for col in row.index
+        ]
+    
+    styled = df_display.style.apply(style_row, axis=1)
+    st.dataframe(styled, use_container_width=True, hide_index=True)
     
     st.divider()
     st.subheader("📈 Графики")
