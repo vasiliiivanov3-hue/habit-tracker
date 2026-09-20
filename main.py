@@ -68,6 +68,49 @@ def format_date_ru(date_obj):
     months = ["января", "февраля", "марта", "апреля", "мая", "июня",
               "июля", "августа", "сентября", "октября", "ноября", "декабря"]
     return f"{date_obj.day} {months[date_obj.month-1]} {date_obj.year}"
+def get_habit_color(data, habits_config, key, today=None):
+    """Возвращает цвет привычки: зелёный/жёлтый/красный/серый"""
+    if today is None:
+        today = datetime.today().date()
+    last_14 = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(14)]
+    done_count = 0
+    last_done_ago = 999
+    has_any = False
+    for i, d in enumerate(last_14):
+        day_info = data.get(d, {})
+        if not isinstance(day_info, dict):
+            continue
+        val = day_info.get(key)
+        if val is None:
+            continue
+        has_any = True
+        is_done = False
+        if habits_config[key]["unit"]:
+            if isinstance(val, (int, float)) and val >= habits_config[key]["min"]:
+                is_done = True
+        else:
+            if val:
+                is_done = True
+        if is_done:
+            done_count += 1
+            if last_done_ago == 999:
+                last_done_ago = i
+    if not has_any:
+        return "#888888"
+    if last_done_ago > 14 or done_count == 0:
+        return "#c62828"
+    if done_count >= 10:
+        return "#2e7d32"
+    if done_count >= 4:
+        return "#f9a825"
+    return "#c62828"
+
+def get_sorted_habits(data, habits_config):
+    """Возвращает список привычек, отсортированный по цвету: зелёные → жёлтые → красные → серые"""
+    priority = {"#2e7d32": 0, "#f9a825": 1, "#c62828": 2, "#888888": 3}
+    items = [(k, v) for k, v in habits_config.items() if k not in ["workout", "workout_details"]]
+    items.sort(key=lambda kv: priority.get(get_habit_color(data, habits_config, kv[0]), 4))
+    return items
 
 # ==================== ДОСТИЖЕНИЯ ====================
 def calculate_streak(data, habit_key):
@@ -490,16 +533,17 @@ def render_habits_input(data, habits_config):
     
     st.markdown("<hr style='margin:4px 0;'>", unsafe_allow_html=True)
     
-    for idx, (key, habit) in enumerate(habits_config.items()):
-        if key == "workout":
-            continue
-        
+    # Сортировка по цвету: зелёные → жёлтые → красные → серые
+    sorted_habits = get_sorted_habits(data, habits_config)
+    
+    for idx, (key, habit) in enumerate(sorted_habits):
         val = day_data.get(key, None)
+        color = get_habit_color(data, habits_config, key)
         
         c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 2, 1])
         
         with c1:
-            st.markdown(f"<div style='padding-top:8px;'>{habit['name']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='padding-top:8px; color:{color}; font-weight:600;'>{habit['name']}</div>", unsafe_allow_html=True)
         with c2:
             st.markdown(f"<div style='padding-top:8px; color:#666;'>{habit['unit'] if habit['unit'] else '—'}</div>", unsafe_allow_html=True)
         with c3:
@@ -559,50 +603,19 @@ def render_calendar_and_graphs(data, habits_config):
                 else: matrix[key].append("⬛")
             else:
                 matrix[key].append("✅" if val else ("⬜" if val is None else "❌"))
-    df_matrix = pd.DataFrame(matrix, index=[f"{i+1}" for i in range(len(dates_in_month))])
+        df_matrix = pd.DataFrame(matrix, index=[f"{i+1}" for i in range(len(dates_in_month))])
     df_matrix.rename(columns={k: habits_config[k]["name"] for k in habits_config}, inplace=True)
     
-    # ---- РАСЧЁТ ЦВЕТА ПО 14 ДНЯМ ----
-    def get_habit_color(key):
-        last_14 = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(14)]
-        done_count = 0
-        last_done_ago = 999
-        has_any = False
-        
-        for i, d in enumerate(last_14):
-            day_info = data.get(d, {})
-            if not isinstance(day_info, dict):
-                continue
-            val = day_info.get(key)
-            if val is None:
-                continue
-            has_any = True
-            is_done = False
-            if habits_config[key]["unit"]:
-                if isinstance(val, (int, float)) and val >= habits_config[key]["min"]:
-                    is_done = True
-            else:
-                if val:
-                    is_done = True
-            if is_done:
-                done_count += 1
-                if last_done_ago == 999:
-                    last_done_ago = i
-        
-        if not has_any:
-            return "#888888"       # серый
-        if last_done_ago > 14 or done_count == 0:
-            return "#c62828"       # красный
-        if done_count >= 10:
-            return "#2e7d32"       # зелёный
-        if done_count >= 4:
-            return "#f9a825"       # жёлтый
-        return "#c62828"           # красный
+    # ---- ЦВЕТА ПРИВЫЧЕК ----
+    color_map = {habit["name"]: get_habit_color(data, habits_config, key) for key, habit in habits_config.items()}
     
-    color_map = {habit["name"]: get_habit_color(key) for key, habit in habits_config.items()}
+    # ---- СОРТИРОВКА ПО ЦВЕТУ + ТРАНСПОНИРОВАНИЕ ----
+    sorted_habits = get_sorted_habits(data, habits_config)
+    sorted_names = [habits_config[k]["name"] for k, _ in sorted_habits]
     
-    # ---- ТАБЛИЦА С ЦВЕТНЫМ ПЕРВЫМ СТОЛБЦОМ ----
-    df_display = df_matrix.T.reset_index()
+    df_display = df_matrix.T  # транспонируем: привычки в индексе, дни в столбцах
+    df_display = df_display.loc[sorted_names]  # сортируем по индексу
+    df_display = df_display.reset_index()
     df_display.rename(columns={"index": "Привычка"}, inplace=True)
     
     def style_row(row):
