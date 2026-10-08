@@ -787,7 +787,7 @@ else:
         st.divider()
         render_diary(data)
     
-        with tab4:
+    with tab4:
         render_personal_records(data, habits_config)
         st.divider()
         render_calendar_and_graphs(data, habits_config)
