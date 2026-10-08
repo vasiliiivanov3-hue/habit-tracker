@@ -47,22 +47,31 @@ def save_habit(date_str, habit_key, value):
     save_data(data)
 
 def parse_habit_value(raw_input, habit_key, date_str):
+    """Принимает 10+20, 30, +15. Сохраняет сумму, список подходов и максимум."""
     raw_input = raw_input.replace(" ", "")
     data = load_data()
     if date_str not in data:
         data[date_str] = {}
-    current_val = data[date_str].get(habit_key, 0)
+    
+    # Разбираем ввод в список подходов
     if raw_input.startswith("+"):
         add_val = int(raw_input[1:])
-        new_val = current_val + add_val
+        sets = data[date_str].get(f"{habit_key}_sets", [])
+        sets.append(add_val)
     elif "+" in raw_input:
-        parts = [int(x) for x in raw_input.split("+")]
-        new_val = sum(parts)
+        sets = [int(x) for x in raw_input.split("+")]
     else:
-        new_val = int(raw_input)
-    data[date_str][habit_key] = new_val
+        sets = [int(raw_input)]
+    
+    total = sum(sets)
+    max_set = max(sets)
+    
+    # Сохраняем всё
+    data[date_str][habit_key] = total
+    data[date_str][f"{habit_key}_sets"] = sets
+    data[date_str][f"{habit_key}_max"] = max_set
     save_data(data)
-    return new_val
+    return total
 
 def format_date_ru(date_obj):
     months = ["января", "февраля", "марта", "апреля", "мая", "июня",
@@ -573,6 +582,64 @@ def render_habits_input(data, habits_config):
                     save_habit(date_str, key, not val if val is not None else True)
                     st.rerun()
 
+                    # ==================== ЛИЧНЫЕ РЕКОРДЫ ====================
+def render_personal_records(data, habits_config):
+    st.subheader("🏅 Личные рекорды (лучший подход)")
+    st.caption("Максимальное количество за один подход. Стимул бить свой рекорд.")
+    
+    any_records = False
+    for key, habit in habits_config.items():
+        if not habit["unit"]:
+            continue  # только для числовых
+        
+        # Собираем все рекорды из истории
+        records = []
+        for date_str, day_data in data.items():
+            if not date_str.startswith("20") or not isinstance(day_data, dict):
+                continue
+            # Новый формат: есть _max
+            if f"{key}_max" in day_data:
+                records.append({
+                    "date": date_str,
+                    "max": day_data[f"{key}_max"],
+                    "sets": day_data.get(f"{key}_sets", [])
+                })
+            # Старый формат: только сумма
+            elif key in day_data and day_data[key] > 0:
+                records.append({
+                    "date": date_str,
+                    "max": day_data[key],
+                    "sets": [day_data[key]]
+                })
+        
+        if not records:
+            continue
+        
+        any_records = True
+        # Сортируем по максимуму (убывание)
+        records.sort(key=lambda r: (-r["max"], r["date"]))
+        
+        # Топ-10
+        top = records[:10]
+        
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, 11)]
+        
+        with st.expander(f"**{habit['name']}** — рекорд: {records[0]['max']} {habit['unit']}", expanded=False):
+            rows = []
+            for i, r in enumerate(top):
+                date_obj = datetime.strptime(r["date"], "%Y-%m-%d")
+                sets_str = " + ".join(str(s) for s in r["sets"]) if r["sets"] else "—"
+                rows.append({
+                    "": medals[i],
+                    "Подход": f"{r['max']} {habit['unit']}",
+                    "Все подходы": sets_str,
+                    "Дата": format_date_ru(date_obj)
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    
+    if not any_records:
+        st.info("Пока нет рекордов. Введи данные в формате `18+10+5` — система запомнит лучший подход.")
+
 # ==================== КАЛЕНДАРЬ И ГРАФИКИ ====================
 def render_calendar_and_graphs(data, habits_config):
     today = datetime.today().date()
@@ -720,7 +787,9 @@ else:
         st.divider()
         render_diary(data)
     
-    with tab4:
+        with tab4:
+        render_personal_records(data, habits_config)
+        st.divider()
         render_calendar_and_graphs(data, habits_config)
         st.divider()
         st.subheader("💾 Резервное копирование")
